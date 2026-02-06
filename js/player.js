@@ -270,9 +270,9 @@ GAME.Player = class Player {
         if (this.state === 'rolling') {
             const rollSpeed = 14;
             const rollDir = new THREE.Vector3(
-                -Math.sin(this.facingAngle),
+                Math.sin(this.facingAngle),
                 0,
-                -Math.cos(this.facingAngle)
+                Math.cos(this.facingAngle)
             );
             const newPos = this.mesh.position.clone().add(rollDir.multiplyScalar(rollSpeed * dt));
             if (!this._checkCollision(newPos, colliders)) {
