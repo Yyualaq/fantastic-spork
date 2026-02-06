@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dark Souls - A Soul-like Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #1a1a1a;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            color: #d4af37;
+        }
+
+        #gameContainer {
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+            color: #d4af37;
+        }
+
+        #gameCanvas {
+            border: 3px solid #d4af37;
+            background: #0a0a0a;
+            box-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
+        }
+
+        #ui {
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-around;
+            width: 800px;
+            font-size: 1.2rem;
+        }
+
+        .stat {
+            padding: 10px 20px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #d4af37;
+            border-radius: 5px;
+        }
+
+        .bar-container {
+            width: 200px;
+            height: 20px;
+            background: #333;
+            border: 2px solid #d4af37;
+            margin-top: 5px;
+            position: relative;
+        }
+
+        .bar {
+            height: 100%;
+            transition: width 0.3s;
+        }
+
+        .health-bar {
+            background: linear-gradient(to right, #ff0000, #cc0000);
+        }
+
+        .stamina-bar {
+            background: linear-gradient(to right, #00ff00, #00cc00);
+        }
+
+        #controls {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #d4af37;
+            border-radius: 5px;
+            max-width: 800px;
+        }
+
+        #controls h3 {
+            margin-bottom: 10px;
+            color: #d4af37;
+        }
+
+        #controls p {
+            margin: 5px 0;
+            color: #ccc;
+        }
+
+        #gameOver {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            border: 3px solid #d4af37;
+            padding: 40px;
+            display: none;
+            text-align: center;
+            z-index: 1000;
+        }
+
+        #gameOver h2 {
+            color: #ff0000;
+            font-size: 3rem;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 8px rgba(255, 0, 0, 0.5);
+        }
+
+        #gameOver p {
+            color: #ccc;
+            font-size: 1.2rem;
+            margin: 10px 0;
+        }
+
+        button {
+            background: #d4af37;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            color: #1a1a1a;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            margin-top: 20px;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: #fff;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <h1>⚔️ DARK SOULS ⚔️</h1>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        
+        <div id="ui">
+            <div class="stat">
+                <div>Health</div>
+                <div class="bar-container">
+                    <div id="healthBar" class="bar health-bar" style="width: 100%"></div>
+                </div>
+            </div>
+            <div class="stat">
+                <div>Stamina</div>
+                <div class="bar-container">
+                    <div id="staminaBar" class="bar stamina-bar" style="width: 100%"></div>
+                </div>
+            </div>
+            <div class="stat">
+                <div>Souls: <span id="soulsCount">0</span></div>
+                <div>Deaths: <span id="deathCount">0</span></div>
+            </div>
+        </div>
+
+        <div id="controls">
+            <h3>🎮 Controls</h3>
+            <p><strong>WASD or Arrow Keys:</strong> Move</p>
+            <p><strong>Space:</strong> Attack</p>
+            <p><strong>Shift:</strong> Dodge Roll (costs stamina)</p>
+            <p><strong>Goal:</strong> Defeat enemies to collect souls. Be careful - you lose health when hit!</p>
+        </div>
+    </div>
+
+    <div id="gameOver">
+        <h2>YOU DIED</h2>
+        <p>Souls Lost: <span id="soulsLost">0</span></p>
+        <p>Total Deaths: <span id="totalDeaths">0</span></p>
+        <button id="respawnBtn">Respawn at Bonfire</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Game state
+        const game = {
+            player: {
+                x: 100,
+                y: 300,
+                width: 30,
+                height: 30,
+                speed: 3,
+                health: 100,
+                maxHealth: 100,
+                stamina: 100,
+                maxStamina: 100,
+                souls: 0,
+                deaths: 0,
+                isAttacking: false,
+                attackCooldown: 0,
+                isDodging: false,
+                dodgeCooldown: 0,
+                dodgeDuration: 0,
+                invulnerable: false,
+                direction: 1, // 1 for right, -1 for left
+                velocityX: 0,
+                velocityY: 0
+            },
+            enemies: [],
+            particles: [],
+            keys: {},
+            enemySpawnTimer: 0,
+            enemySpawnInterval: 180, // frames
+            gameOver: false
+        };
+
+        // Player class
+        class Player {
+            draw() {
+                const p = game.player;
+                
+                // Draw shadow
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.fillRect(p.x + 5, p.y + p.height, p.width - 10, 5);
+
+                // Draw player (knight)
+                if (p.invulnerable && Math.floor(Date.now() / 100) % 2 === 0) {
+                    ctx.globalAlpha = 0.5;
+                }
+
+                ctx.fillStyle = p.isDodging ? '#888' : '#4169e1';
+                ctx.fillRect(p.x, p.y, p.width, p.height);
+                
+                // Helmet
+                ctx.fillStyle = '#d4af37';
+                ctx.fillRect(p.x + 5, p.y, p.width - 10, 8);
+                
+                // Sword when attacking
+                if (p.isAttacking) {
+                    ctx.fillStyle = '#c0c0c0';
+                    const swordX = p.direction > 0 ? p.x + p.width : p.x - 25;
+                    ctx.fillRect(swordX, p.y + 10, 25, 5);
+                }
+
+                ctx.globalAlpha = 1;
+            }
+
+            update() {
+                const p = game.player;
+
+                // Regenerate stamina
+                if (p.stamina < p.maxStamina && !p.isDodging) {
+                    p.stamina = Math.min(p.maxStamina, p.stamina + 0.5);
+                }
+
+                // Handle dodge
+                if (p.isDodging) {
+                    p.dodgeDuration--;
+                    if (p.dodgeDuration <= 0) {
+                        p.isDodging = false;
+                        p.invulnerable = false;
+                    }
+                }
+
+                if (p.dodgeCooldown > 0) p.dodgeCooldown--;
+                if (p.attackCooldown > 0) p.attackCooldown--;
+
+                // Movement
+                p.velocityX = 0;
+                p.velocityY = 0;
+
+                if (!p.isDodging) {
+                    if (game.keys['ArrowLeft'] || game.keys['a'] || game.keys['A']) {
+                        p.velocityX = -p.speed;
+                        p.direction = -1;
+                    }
+                    if (game.keys['ArrowRight'] || game.keys['d'] || game.keys['D']) {
+                        p.velocityX = p.speed;
+                        p.direction = 1;
+                    }
+                    if (game.keys['ArrowUp'] || game.keys['w'] || game.keys['W']) {
+                        p.velocityY = -p.speed;
+                    }
+                    if (game.keys['ArrowDown'] || game.keys['s'] || game.keys['S']) {
+                        p.velocityY = p.speed;
+                    }
+                } else {
+                    // Continue dodge movement
+                    p.velocityX = p.direction * p.speed * 2;
+                }
+
+                // Apply movement
+                p.x += p.velocityX;
+                p.y += p.velocityY;
+
+                // Keep player in bounds
+                p.x = Math.max(0, Math.min(canvas.width - p.width, p.x));
+                p.y = Math.max(0, Math.min(canvas.height - p.height, p.y));
+
+                // Attack
+                if (game.keys[' '] && p.attackCooldown === 0 && !p.isDodging) {
+                    p.isAttacking = true;
+                    p.attackCooldown = 30;
+                    setTimeout(() => {
+                        p.isAttacking = false;
+                        this.checkAttackHit();
+                    }, 200);
+                }
+
+                // Dodge
+                if (game.keys['Shift'] && p.dodgeCooldown === 0 && p.stamina >= 20 && !p.isDodging) {
+                    p.isDodging = true;
+                    p.invulnerable = true;
+                    p.dodgeDuration = 15;
+                    p.dodgeCooldown = 60;
+                    p.stamina -= 20;
+                }
+            }
+
+            checkAttackHit() {
+                const p = game.player;
+                const attackRange = 40;
+                
+                game.enemies.forEach((enemy, index) => {
+                    const dx = enemy.x - p.x;
+                    const dy = enemy.y - p.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < attackRange && 
+                        ((p.direction > 0 && enemy.x > p.x) || (p.direction < 0 && enemy.x < p.x))) {
+                        enemy.health -= 50;
+                        
+                        // Knockback
+                        enemy.x += p.direction * 20;
+                        
+                        // Create particles
+                        for (let i = 0; i < 5; i++) {
+                            game.particles.push({
+                                x: enemy.x + enemy.width / 2,
+                                y: enemy.y + enemy.height / 2,
+                                vx: (Math.random() - 0.5) * 4,
+                                vy: (Math.random() - 0.5) * 4,
+                                life: 30,
+                                color: '#ff0000'
+                            });
+                        }
+                        
+                        if (enemy.health <= 0) {
+                            game.player.souls += 10;
+                            game.enemies.splice(index, 1);
+                            
+                            // Death particles
+                            for (let i = 0; i < 15; i++) {
+                                game.particles.push({
+                                    x: enemy.x + enemy.width / 2,
+                                    y: enemy.y + enemy.height / 2,
+                                    vx: (Math.random() - 0.5) * 6,
+                                    vy: (Math.random() - 0.5) * 6,
+                                    life: 60,
+                                    color: '#d4af37'
+                                });
+                            }
+                        }
+                    }
+                });
+            }
+
+            takeDamage(amount) {
+                if (!game.player.invulnerable) {
+                    game.player.health -= amount;
+                    game.player.invulnerable = true;
+                    
+                    setTimeout(() => {
+                        game.player.invulnerable = false;
+                    }, 500);
+
+                    if (game.player.health <= 0) {
+                        this.die();
+                    }
+                }
+            }
+
+            die() {
+                game.gameOver = true;
+                game.player.deaths++;
+                
+                document.getElementById('soulsLost').textContent = game.player.souls;
+                document.getElementById('totalDeaths').textContent = game.player.deaths;
+                document.getElementById('gameOver').style.display = 'block';
+                
+                // Death particles
+                for (let i = 0; i < 30; i++) {
+                    game.particles.push({
+                        x: game.player.x + game.player.width / 2,
+                        y: game.player.y + game.player.height / 2,
+                        vx: (Math.random() - 0.5) * 8,
+                        vy: (Math.random() - 0.5) * 8,
+                        life: 90,
+                        color: '#4169e1'
+                    });
+                }
+            }
+        }
+
+        // Enemy class
+        class Enemy {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.width = 30;
+                this.height = 30;
+                this.health = 100;
+                this.maxHealth = 100;
+                this.speed = 1;
+                this.attackCooldown = 0;
+                this.direction = 1;
+            }
+
+            draw() {
+                // Draw shadow
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.fillRect(this.x + 5, this.y + this.height, this.width - 10, 5);
+
+                // Draw enemy (hollow)
+                ctx.fillStyle = '#8b0000';
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                // Eyes
+                ctx.fillStyle = '#ff0000';
+                ctx.fillRect(this.x + 7, this.y + 8, 5, 5);
+                ctx.fillRect(this.x + 18, this.y + 8, 5, 5);
+                
+                // Health bar
+                const healthBarWidth = this.width * (this.health / this.maxHealth);
+                ctx.fillStyle = '#333';
+                ctx.fillRect(this.x, this.y - 10, this.width, 5);
+                ctx.fillStyle = '#ff0000';
+                ctx.fillRect(this.x, this.y - 10, healthBarWidth, 5);
+            }
+
+            update() {
+                const p = game.player;
+                
+                // Simple AI - chase player
+                const dx = p.x - this.x;
+                const dy = p.y - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance > 0) {
+                    this.x += (dx / distance) * this.speed;
+                    this.y += (dy / distance) * this.speed;
+                    this.direction = dx > 0 ? 1 : -1;
+                }
+
+                // Attack player if close
+                if (distance < 35 && this.attackCooldown === 0) {
+                    player.takeDamage(10);
+                    this.attackCooldown = 60;
+                }
+
+                if (this.attackCooldown > 0) {
+                    this.attackCooldown--;
+                }
+            }
+        }
+
+        // Particle system
+        function updateParticles() {
+            game.particles = game.particles.filter(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life--;
+                
+                ctx.globalAlpha = p.life / 60;
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x, p.y, 3, 3);
+                ctx.globalAlpha = 1;
+                
+                return p.life > 0;
+            });
+        }
+
+        // Spawn enemies
+        function spawnEnemy() {
+            const side = Math.random() > 0.5 ? 1 : -1;
+            const x = side > 0 ? canvas.width : 0;
+            const y = Math.random() * (canvas.height - 30);
+            game.enemies.push(new Enemy(x, y));
+        }
+
+        // Initialize
+        const player = new Player();
+
+        // Spawn initial enemies
+        spawnEnemy();
+        spawnEnemy();
+
+        // Event listeners
+        document.addEventListener('keydown', (e) => {
+            game.keys[e.key] = true;
+            if (e.key === ' ') e.preventDefault();
+        });
+
+        document.addEventListener('keyup', (e) => {
+            game.keys[e.key] = false;
+        });
+
+        document.getElementById('respawnBtn').addEventListener('click', () => {
+            // Respawn
+            game.player.health = game.player.maxHealth;
+            game.player.stamina = game.player.maxStamina;
+            game.player.x = 100;
+            game.player.y = 300;
+            game.player.souls = 0; // Lost souls
+            game.enemies = [];
+            game.gameOver = false;
+            
+            // Spawn new enemies
+            spawnEnemy();
+            spawnEnemy();
+            
+            document.getElementById('gameOver').style.display = 'none';
+        });
+
+        // Update UI
+        function updateUI() {
+            const healthPercent = (game.player.health / game.player.maxHealth) * 100;
+            const staminaPercent = (game.player.stamina / game.player.maxStamina) * 100;
+            
+            document.getElementById('healthBar').style.width = healthPercent + '%';
+            document.getElementById('staminaBar').style.width = staminaPercent + '%';
+            document.getElementById('soulsCount').textContent = game.player.souls;
+            document.getElementById('deathCount').textContent = game.player.deaths;
+        }
+
+        // Game loop
+        function gameLoop() {
+            if (!game.gameOver) {
+                // Clear canvas
+                ctx.fillStyle = '#0a0a0a';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Draw ground pattern
+                ctx.strokeStyle = '#1a1a1a';
+                for (let i = 0; i < canvas.width; i += 40) {
+                    ctx.beginPath();
+                    ctx.moveTo(i, 0);
+                    ctx.lineTo(i, canvas.height);
+                    ctx.stroke();
+                }
+                for (let i = 0; i < canvas.height; i += 40) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, i);
+                    ctx.lineTo(canvas.width, i);
+                    ctx.stroke();
+                }
+
+                // Update and draw
+                player.update();
+                player.draw();
+
+                game.enemies.forEach(enemy => {
+                    enemy.update();
+                    enemy.draw();
+                });
+
+                updateParticles();
+
+                // Spawn enemies
+                game.enemySpawnTimer++;
+                if (game.enemySpawnTimer >= game.enemySpawnInterval && game.enemies.length < 5) {
+                    spawnEnemy();
+                    game.enemySpawnTimer = 0;
+                }
+
+                updateUI();
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Start game
+        gameLoop();
+    </script>
+</body>
+</html>
