@@ -1,0 +1,1456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Souls-like 3D RPG</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            background: #000;
+        }
+        
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        /* Health and Stamina bars */
+        .stat-bar {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 300px;
+        }
+        
+        .bar-container {
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #666;
+            height: 30px;
+            margin-bottom: 10px;
+            position: relative;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .bar-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+        
+        .health-fill {
+            background: linear-gradient(90deg, #c41e3a 0%, #ff4d4d 100%);
+        }
+        
+        .stamina-fill {
+            background: linear-gradient(90deg, #2e7d32 0%, #4caf50 100%);
+        }
+        
+        .bar-label {
+            position: absolute;
+            top: 50%;
+            left: 10px;
+            transform: translateY(-50%);
+            color: #fff;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+            font-size: 14px;
+        }
+        
+        /* Enemy Health Bar */
+        #enemy-health-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -200px);
+            width: 400px;
+            display: none;
+        }
+        
+        #enemy-name {
+            color: #fff;
+            text-align: center;
+            margin-bottom: 5px;
+            font-size: 18px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+        
+        /* Lock-on Reticle */
+        #lock-reticle {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            border: 2px solid #ff0000;
+            border-radius: 50%;
+            display: none;
+            pointer-events: none;
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+        }
+        
+        #lock-reticle::before,
+        #lock-reticle::after {
+            content: '';
+            position: absolute;
+            background: #ff0000;
+        }
+        
+        #lock-reticle::before {
+            width: 2px;
+            height: 10px;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        #lock-reticle::after {
+            width: 10px;
+            height: 2px;
+            top: 50%;
+            left: -12px;
+            transform: translateY(-50%);
+        }
+        
+        /* Controls Info */
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: #fff;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border: 2px solid #666;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        #controls h3 {
+            margin-bottom: 10px;
+            color: #ffd700;
+        }
+        
+        #controls p {
+            margin: 3px 0;
+        }
+        
+        /* Death Screen */
+        #death-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            display: none;
+            pointer-events: all;
+        }
+        
+        #death-screen h1 {
+            color: #c41e3a;
+            font-size: 72px;
+            margin-bottom: 20px;
+            text-shadow: 4px 4px 8px rgba(0, 0, 0, 0.9);
+            animation: pulse 2s infinite;
+        }
+        
+        #death-screen button {
+            padding: 15px 30px;
+            font-size: 18px;
+            background: #666;
+            color: #fff;
+            border: 2px solid #999;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+        
+        #death-screen button:hover {
+            background: #888;
+            transform: scale(1.05);
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        /* Checkpoint indicator */
+        #checkpoint-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ffd700;
+            font-size: 24px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+            display: none;
+            animation: fadeInOut 2s forwards;
+        }
+        
+        @keyframes fadeInOut {
+            0% { opacity: 0; }
+            20% { opacity: 1; }
+            80% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="ui-overlay">
+            <!-- Player Stats -->
+            <div class="stat-bar">
+                <div class="bar-container">
+                    <div class="bar-fill health-fill" id="health-bar" style="width: 100%;"></div>
+                    <div class="bar-label">HEALTH</div>
+                </div>
+                <div class="bar-container">
+                    <div class="bar-fill stamina-fill" id="stamina-bar" style="width: 100%;"></div>
+                    <div class="bar-label">STAMINA</div>
+                </div>
+            </div>
+            
+            <!-- Enemy Health -->
+            <div id="enemy-health-container">
+                <div id="enemy-name">Enemy Knight</div>
+                <div class="bar-container">
+                    <div class="bar-fill health-fill" id="enemy-health-bar" style="width: 100%;"></div>
+                </div>
+            </div>
+            
+            <!-- Lock-on Reticle -->
+            <div id="lock-reticle"></div>
+            
+            <!-- Controls -->
+            <div id="controls">
+                <h3>CONTROLS</h3>
+                <p><strong>WASD</strong> - Move</p>
+                <p><strong>Mouse</strong> - Camera</p>
+                <p><strong>Left Click</strong> - Light Attack</p>
+                <p><strong>Hold Left Click</strong> - Heavy Attack</p>
+                <p><strong>Space</strong> - Dodge/Roll</p>
+                <p><strong>Q</strong> - Lock-on Target</p>
+                <p><strong>E</strong> - Activate Checkpoint</p>
+            </div>
+            
+            <!-- Death Screen -->
+            <div id="death-screen">
+                <h1>YOU DIED</h1>
+                <button id="respawn-btn">Respawn</button>
+            </div>
+            
+            <!-- Checkpoint Message -->
+            <div id="checkpoint-message">Checkpoint Activated</div>
+        </div>
+    </div>
+    
+    <!-- Three.js from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    
+    <script>
+        // ============================================
+        // GAME CONFIGURATION & INITIALIZATION
+        // ============================================
+        
+        const CONFIG = {
+            player: {
+                maxHealth: 100,
+                maxStamina: 100,
+                staminaRegen: 15,
+                moveSpeed: 5,
+                rollSpeed: 10,
+                rollDuration: 0.6,
+                attackStaminaCost: 20,
+                heavyAttackStaminaCost: 40,
+                rollStaminaCost: 25,
+                lightAttackDamage: 15,
+                heavyAttackDamage: 35,
+            },
+            enemy: {
+                maxHealth: 150,
+                moveSpeed: 2,
+                attackRange: 3,
+                detectionRange: 15,
+                attackDamage: 20,
+                attackCooldown: 2,
+            },
+            boss: {
+                maxHealth: 300,
+                moveSpeed: 3,
+                attackRange: 4,
+                detectionRange: 20,
+                attackDamage: 30,
+                attackCooldown: 1.5,
+            }
+        };
+        
+        // Game State
+        const gameState = {
+            scene: null,
+            camera: null,
+            renderer: null,
+            player: null,
+            enemies: [],
+            checkpoints: [],
+            activeCheckpoint: null,
+            lockedTarget: null,
+            keys: {},
+            mouse: { x: 0, y: 0 },
+            mouseDown: false,
+            mouseDownTime: 0,
+            clock: new THREE.Clock(),
+            audioContext: null,
+        };
+        
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+        
+        function init() {
+            // Create scene
+            gameState.scene = new THREE.Scene();
+            gameState.scene.background = new THREE.Color(0x0a0a0a);
+            gameState.scene.fog = new THREE.Fog(0x0a0a0a, 10, 50);
+            
+            // Create camera
+            gameState.camera = new THREE.PerspectiveCamera(
+                75,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                1000
+            );
+            
+            // Create renderer
+            gameState.renderer = new THREE.WebGLRenderer({ antialias: true });
+            gameState.renderer.setSize(window.innerWidth, window.innerHeight);
+            gameState.renderer.shadowMap.enabled = true;
+            gameState.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.getElementById('game-container').appendChild(gameState.renderer.domElement);
+            
+            // Setup audio
+            try {
+                gameState.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            } catch (e) {
+                console.warn('Web Audio API not supported');
+            }
+            
+            // Add lighting
+            setupLighting();
+            
+            // Create level
+            createLevel();
+            
+            // Create player
+            createPlayer();
+            
+            // Create enemies
+            createEnemies();
+            
+            // Create checkpoints
+            createCheckpoints();
+            
+            // Setup event listeners
+            setupEventListeners();
+            
+            // Start game loop
+            animate();
+        }
+        
+        // ============================================
+        // LIGHTING SETUP
+        // ============================================
+        
+        function setupLighting() {
+            // Ambient light
+            const ambientLight = new THREE.AmbientLight(0x404060, 0.3);
+            gameState.scene.add(ambientLight);
+            
+            // Directional light (main sun/moon)
+            const directionalLight = new THREE.DirectionalLight(0x8080a0, 0.6);
+            directionalLight.position.set(10, 20, 5);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.camera.left = -30;
+            directionalLight.shadow.camera.right = 30;
+            directionalLight.shadow.camera.top = 30;
+            directionalLight.shadow.camera.bottom = -30;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            gameState.scene.add(directionalLight);
+            
+            // Point lights for atmospheric effect
+            const pointLight1 = new THREE.PointLight(0xff6600, 1, 20);
+            pointLight1.position.set(-10, 3, -10);
+            pointLight1.castShadow = true;
+            gameState.scene.add(pointLight1);
+            
+            const pointLight2 = new THREE.PointLight(0x6600ff, 0.8, 20);
+            pointLight2.position.set(10, 3, 10);
+            pointLight2.castShadow = true;
+            gameState.scene.add(pointLight2);
+        }
+        
+        // ============================================
+        // LEVEL CREATION
+        // ============================================
+        
+        function createLevel() {
+            // Ground
+            const groundGeometry = new THREE.PlaneGeometry(100, 100);
+            const groundMaterial = new THREE.MeshStandardMaterial({
+                color: 0x1a1a2e,
+                roughness: 0.8,
+                metalness: 0.2
+            });
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            gameState.scene.add(ground);
+            
+            // Walls - Create arena boundaries
+            const wallMaterial = new THREE.MeshStandardMaterial({
+                color: 0x2a2a3e,
+                roughness: 0.9
+            });
+            
+            // North wall
+            createWall(0, 2.5, -25, 50, 5, 1, wallMaterial);
+            // South wall
+            createWall(0, 2.5, 25, 50, 5, 1, wallMaterial);
+            // East wall
+            createWall(25, 2.5, 0, 1, 5, 50, wallMaterial);
+            // West wall
+            createWall(-25, 2.5, 0, 1, 5, 50, wallMaterial);
+            
+            // Create obstacles and pillars
+            for (let i = 0; i < 8; i++) {
+                const x = (Math.random() - 0.5) * 40;
+                const z = (Math.random() - 0.5) * 40;
+                if (Math.abs(x) < 5 && Math.abs(z) < 5) continue; // Don't spawn near center
+                
+                const pillarGeometry = new THREE.BoxGeometry(2, 6, 2);
+                const pillarMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x3a3a4e,
+                    roughness: 0.7
+                });
+                const pillar = new THREE.Mesh(pillarGeometry, pillarMaterial);
+                pillar.position.set(x, 3, z);
+                pillar.castShadow = true;
+                pillar.receiveShadow = true;
+                gameState.scene.add(pillar);
+            }
+            
+            // Boss arena marker (circular platform)
+            const arenaGeometry = new THREE.CylinderGeometry(8, 8, 0.2, 32);
+            const arenaMaterial = new THREE.MeshStandardMaterial({
+                color: 0x4a0e0e,
+                roughness: 0.6,
+                metalness: 0.3
+            });
+            const bossArena = new THREE.Mesh(arenaGeometry, arenaMaterial);
+            bossArena.position.set(0, 0.1, -15);
+            bossArena.receiveShadow = true;
+            gameState.scene.add(bossArena);
+        }
+        
+        function createWall(x, y, z, width, height, depth, material) {
+            const geometry = new THREE.BoxGeometry(width, height, depth);
+            const wall = new THREE.Mesh(geometry, material);
+            wall.position.set(x, y, z);
+            wall.castShadow = true;
+            wall.receiveShadow = true;
+            gameState.scene.add(wall);
+        }
+        
+        // ============================================
+        // PLAYER CREATION
+        // ============================================
+        
+        function createPlayer() {
+            const playerGroup = new THREE.Group();
+            
+            // Body
+            const bodyGeometry = new THREE.BoxGeometry(0.8, 1.5, 0.5);
+            const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x4a90e2 });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.y = 1.5;
+            body.castShadow = true;
+            playerGroup.add(body);
+            
+            // Head
+            const headGeometry = new THREE.SphereGeometry(0.4, 16, 16);
+            const headMaterial = new THREE.MeshStandardMaterial({ color: 0xffdbac });
+            const head = new THREE.Mesh(headGeometry, headMaterial);
+            head.position.y = 2.5;
+            head.castShadow = true;
+            playerGroup.add(head);
+            
+            // Arms
+            const armGeometry = new THREE.BoxGeometry(0.2, 1, 0.2);
+            const armMaterial = new THREE.MeshStandardMaterial({ color: 0x4a90e2 });
+            
+            const leftArm = new THREE.Mesh(armGeometry, armMaterial);
+            leftArm.position.set(-0.6, 1.5, 0);
+            leftArm.castShadow = true;
+            playerGroup.add(leftArm);
+            
+            const rightArm = new THREE.Mesh(armGeometry, armMaterial);
+            rightArm.position.set(0.6, 1.5, 0);
+            rightArm.castShadow = true;
+            playerGroup.add(rightArm);
+            
+            // Weapon (sword)
+            const weaponGeometry = new THREE.BoxGeometry(0.1, 1.5, 0.1);
+            const weaponMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0xcccccc,
+                metalness: 0.8,
+                roughness: 0.2
+            });
+            const weapon = new THREE.Mesh(weaponGeometry, weaponMaterial);
+            weapon.position.set(0.6, 1, 0.3);
+            weapon.castShadow = true;
+            playerGroup.add(weapon);
+            
+            playerGroup.position.set(0, 0, 0);
+            gameState.scene.add(playerGroup);
+            
+            // Player state
+            gameState.player = {
+                mesh: playerGroup,
+                body: body,
+                leftArm: leftArm,
+                rightArm: rightArm,
+                weapon: weapon,
+                health: CONFIG.player.maxHealth,
+                stamina: CONFIG.player.maxStamina,
+                velocity: new THREE.Vector3(),
+                isRolling: false,
+                rollTime: 0,
+                isAttacking: false,
+                attackTime: 0,
+                invincible: false,
+                isDead: false,
+                animationState: 'idle',
+            };
+            
+            // Setup camera to follow player
+            gameState.camera.position.set(0, 5, 10);
+            gameState.camera.lookAt(playerGroup.position);
+        }
+        
+        // ============================================
+        // ENEMY CREATION
+        // ============================================
+        
+        function createEnemies() {
+            // Create regular enemies
+            createEnemy(10, 0, 10, false);
+            createEnemy(-10, 0, 10, false);
+            createEnemy(15, 0, -5, false);
+            
+            // Create boss enemy
+            createEnemy(0, 0, -15, true);
+        }
+        
+        function createEnemy(x, y, z, isBoss = false) {
+            const enemyGroup = new THREE.Group();
+            
+            const scale = isBoss ? 1.5 : 1;
+            const color = isBoss ? 0x8b0000 : 0x666666;
+            
+            // Body
+            const bodyGeometry = new THREE.BoxGeometry(1 * scale, 1.8 * scale, 0.6 * scale);
+            const bodyMaterial = new THREE.MeshStandardMaterial({ 
+                color: color,
+                metalness: 0.6,
+                roughness: 0.4
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.y = 1.5 * scale;
+            body.castShadow = true;
+            enemyGroup.add(body);
+            
+            // Head (helmet)
+            const headGeometry = new THREE.BoxGeometry(0.8 * scale, 0.8 * scale, 0.8 * scale);
+            const headMaterial = new THREE.MeshStandardMaterial({ 
+                color: color,
+                metalness: 0.7,
+                roughness: 0.3
+            });
+            const head = new THREE.Mesh(headGeometry, headMaterial);
+            head.position.y = 2.7 * scale;
+            head.castShadow = true;
+            enemyGroup.add(head);
+            
+            // Arms
+            const armGeometry = new THREE.BoxGeometry(0.3 * scale, 1.2 * scale, 0.3 * scale);
+            const armMaterial = new THREE.MeshStandardMaterial({ color: color });
+            
+            const leftArm = new THREE.Mesh(armGeometry, armMaterial);
+            leftArm.position.set(-0.7 * scale, 1.5 * scale, 0);
+            leftArm.castShadow = true;
+            enemyGroup.add(leftArm);
+            
+            const rightArm = new THREE.Mesh(armGeometry, armMaterial);
+            rightArm.position.set(0.7 * scale, 1.5 * scale, 0);
+            rightArm.castShadow = true;
+            enemyGroup.add(rightArm);
+            
+            // Weapon
+            const weaponGeometry = new THREE.BoxGeometry(0.2 * scale, 2 * scale, 0.2 * scale);
+            const weaponMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x444444,
+                metalness: 0.9,
+                roughness: 0.1
+            });
+            const weapon = new THREE.Mesh(weaponGeometry, weaponMaterial);
+            weapon.position.set(0.7 * scale, 1.2 * scale, 0.4 * scale);
+            weapon.castShadow = true;
+            enemyGroup.add(weapon);
+            
+            enemyGroup.position.set(x, y, z);
+            gameState.scene.add(enemyGroup);
+            
+            // Enemy state
+            const config = isBoss ? CONFIG.boss : CONFIG.enemy;
+            const enemy = {
+                mesh: enemyGroup,
+                body: body,
+                leftArm: leftArm,
+                rightArm: rightArm,
+                weapon: weapon,
+                health: config.maxHealth,
+                maxHealth: config.maxHealth,
+                moveSpeed: config.moveSpeed,
+                attackRange: config.attackRange,
+                detectionRange: config.detectionRange,
+                attackDamage: config.attackDamage,
+                attackCooldown: config.attackCooldown,
+                lastAttackTime: 0,
+                state: 'patrol',
+                patrolTarget: new THREE.Vector3(x + Math.random() * 10 - 5, 0, z + Math.random() * 10 - 5),
+                isAttacking: false,
+                attackTime: 0,
+                isBoss: isBoss,
+                isDead: false,
+            };
+            
+            gameState.enemies.push(enemy);
+        }
+        
+        // ============================================
+        // CHECKPOINT CREATION
+        // ============================================
+        
+        function createCheckpoints() {
+            createCheckpoint(0, 0, 0); // Starting checkpoint
+            createCheckpoint(-15, 0, -15); // Side checkpoint
+        }
+        
+        function createCheckpoint(x, y, z) {
+            const checkpointGroup = new THREE.Group();
+            
+            // Base
+            const baseGeometry = new THREE.CylinderGeometry(1, 1.2, 0.3, 8);
+            const baseMaterial = new THREE.MeshStandardMaterial({ color: 0x4a4a4a });
+            const base = new THREE.Mesh(baseGeometry, baseMaterial);
+            base.castShadow = true;
+            checkpointGroup.add(base);
+            
+            // Flame
+            const flameGeometry = new THREE.ConeGeometry(0.5, 1.5, 8);
+            const flameMaterial = new THREE.MeshStandardMaterial({
+                color: 0xff6600,
+                emissive: 0xff3300,
+                emissiveIntensity: 0.5
+            });
+            const flame = new THREE.Mesh(flameGeometry, flameMaterial);
+            flame.position.y = 1;
+            checkpointGroup.add(flame);
+            
+            // Light
+            const light = new THREE.PointLight(0xff6600, 2, 10);
+            light.position.y = 1.5;
+            checkpointGroup.add(light);
+            
+            checkpointGroup.position.set(x, y, z);
+            gameState.scene.add(checkpointGroup);
+            
+            const checkpoint = {
+                mesh: checkpointGroup,
+                flame: flame,
+                position: new THREE.Vector3(x, y, z),
+                isActive: false
+            };
+            
+            gameState.checkpoints.push(checkpoint);
+            
+            // Activate first checkpoint automatically
+            if (gameState.checkpoints.length === 1) {
+                activateCheckpoint(checkpoint);
+            }
+        }
+        
+        // ============================================
+        // EVENT LISTENERS
+        // ============================================
+        
+        function setupEventListeners() {
+            // Keyboard
+            window.addEventListener('keydown', (e) => {
+                gameState.keys[e.key.toLowerCase()] = true;
+                
+                // Lock-on toggle
+                if (e.key.toLowerCase() === 'q') {
+                    toggleLockOn();
+                }
+                
+                // Activate checkpoint
+                if (e.key.toLowerCase() === 'e') {
+                    checkCheckpointActivation();
+                }
+                
+                // Dodge/Roll
+                if (e.key === ' ' && !gameState.player.isRolling && !gameState.player.isDead) {
+                    e.preventDefault();
+                    performRoll();
+                }
+            });
+            
+            window.addEventListener('keyup', (e) => {
+                gameState.keys[e.key.toLowerCase()] = false;
+            });
+            
+            // Mouse
+            gameState.renderer.domElement.addEventListener('mousedown', (e) => {
+                if (e.button === 0 && !gameState.player.isDead) { // Left click
+                    gameState.mouseDown = true;
+                    gameState.mouseDownTime = 0;
+                }
+            });
+            
+            gameState.renderer.domElement.addEventListener('mouseup', (e) => {
+                if (e.button === 0 && gameState.mouseDown && !gameState.player.isDead) {
+                    if (gameState.mouseDownTime < 0.5) {
+                        performLightAttack();
+                    } else {
+                        performHeavyAttack();
+                    }
+                }
+                gameState.mouseDown = false;
+                gameState.mouseDownTime = 0;
+            });
+            
+            window.addEventListener('mousemove', (e) => {
+                gameState.mouse.x += e.movementX * 0.002;
+                gameState.mouse.y += e.movementY * 0.002;
+                gameState.mouse.y = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, gameState.mouse.y));
+            });
+            
+            // Click to lock pointer
+            gameState.renderer.domElement.addEventListener('click', () => {
+                gameState.renderer.domElement.requestPointerLock();
+            });
+            
+            // Respawn button
+            document.getElementById('respawn-btn').addEventListener('click', respawnPlayer);
+            
+            // Window resize
+            window.addEventListener('resize', () => {
+                gameState.camera.aspect = window.innerWidth / window.innerHeight;
+                gameState.camera.updateProjectionMatrix();
+                gameState.renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+        
+        // ============================================
+        // COMBAT MECHANICS
+        // ============================================
+        
+        function performLightAttack() {
+            if (gameState.player.isAttacking || gameState.player.isRolling) return;
+            if (gameState.player.stamina < CONFIG.player.attackStaminaCost) return;
+            
+            gameState.player.isAttacking = true;
+            gameState.player.attackTime = 0;
+            gameState.player.stamina -= CONFIG.player.attackStaminaCost;
+            
+            playSound(400, 0.1, 'square');
+            
+            // Damage enemies in range
+            setTimeout(() => {
+                damageEnemiesInRange(CONFIG.player.lightAttackDamage, 3);
+            }, 200);
+            
+            // Animation - swing weapon
+            animateAttack(false);
+        }
+        
+        function performHeavyAttack() {
+            if (gameState.player.isAttacking || gameState.player.isRolling) return;
+            if (gameState.player.stamina < CONFIG.player.heavyAttackStaminaCost) return;
+            
+            gameState.player.isAttacking = true;
+            gameState.player.attackTime = 0;
+            gameState.player.stamina -= CONFIG.player.heavyAttackStaminaCost;
+            
+            playSound(300, 0.15, 'sawtooth');
+            
+            // Damage enemies in range
+            setTimeout(() => {
+                damageEnemiesInRange(CONFIG.player.heavyAttackDamage, 4);
+            }, 400);
+            
+            // Animation - heavy swing
+            animateAttack(true);
+        }
+        
+        function performRoll() {
+            if (gameState.player.stamina < CONFIG.player.rollStaminaCost) return;
+            
+            gameState.player.isRolling = true;
+            gameState.player.rollTime = 0;
+            gameState.player.stamina -= CONFIG.player.rollStaminaCost;
+            gameState.player.invincible = true;
+            
+            playSound(200, 0.05, 'sine');
+            
+            setTimeout(() => {
+                gameState.player.invincible = false;
+            }, 400);
+        }
+        
+        function damageEnemiesInRange(damage, range) {
+            const playerPos = gameState.player.mesh.position;
+            const playerDir = new THREE.Vector3(0, 0, -1);
+            playerDir.applyQuaternion(gameState.player.mesh.quaternion);
+            
+            gameState.enemies.forEach(enemy => {
+                if (enemy.isDead) return;
+                
+                const enemyPos = enemy.mesh.position;
+                const dist = playerPos.distanceTo(enemyPos);
+                
+                if (dist < range) {
+                    const dirToEnemy = new THREE.Vector3()
+                        .subVectors(enemyPos, playerPos)
+                        .normalize();
+                    const dot = playerDir.dot(dirToEnemy);
+                    
+                    if (dot > 0.5) { // In front of player
+                        damageEnemy(enemy, damage);
+                    }
+                }
+            });
+        }
+        
+        function damageEnemy(enemy, damage) {
+            enemy.health -= damage;
+            playSound(600, 0.1, 'square');
+            
+            // Visual feedback
+            enemy.body.material.emissive = new THREE.Color(0xff0000);
+            enemy.body.material.emissiveIntensity = 0.5;
+            setTimeout(() => {
+                enemy.body.material.emissiveIntensity = 0;
+            }, 100);
+            
+            if (enemy.health <= 0 && !enemy.isDead) {
+                killEnemy(enemy);
+            }
+            
+            updateEnemyHealthBar(enemy);
+        }
+        
+        function damagePlayer(damage) {
+            if (gameState.player.invincible || gameState.player.isDead) return;
+            
+            gameState.player.health -= damage;
+            playSound(250, 0.2, 'sawtooth');
+            
+            // Visual feedback - screen flash
+            gameState.player.body.material.emissive = new THREE.Color(0xff0000);
+            gameState.player.body.material.emissiveIntensity = 0.5;
+            setTimeout(() => {
+                gameState.player.body.material.emissiveIntensity = 0;
+            }, 100);
+            
+            if (gameState.player.health <= 0) {
+                playerDeath();
+            }
+            
+            updatePlayerUI();
+        }
+        
+        function killEnemy(enemy) {
+            enemy.isDead = true;
+            enemy.state = 'dead';
+            
+            // Death animation - fall down
+            const fallAnimation = () => {
+                enemy.mesh.rotation.x += 0.05;
+                if (enemy.mesh.rotation.x < Math.PI / 2) {
+                    requestAnimationFrame(fallAnimation);
+                } else {
+                    // Remove after a delay
+                    setTimeout(() => {
+                        gameState.scene.remove(enemy.mesh);
+                        const index = gameState.enemies.indexOf(enemy);
+                        if (index > -1) {
+                            gameState.enemies.splice(index, 1);
+                        }
+                    }, 3000);
+                }
+            };
+            fallAnimation();
+            
+            hideEnemyHealthBar();
+        }
+        
+        function playerDeath() {
+            gameState.player.isDead = true;
+            document.getElementById('death-screen').style.display = 'block';
+            playSound(150, 0.5, 'sawtooth');
+        }
+        
+        function respawnPlayer() {
+            if (!gameState.activeCheckpoint) return;
+            
+            // Reset player
+            gameState.player.health = CONFIG.player.maxHealth;
+            gameState.player.stamina = CONFIG.player.maxStamina;
+            gameState.player.isDead = false;
+            gameState.player.mesh.position.copy(gameState.activeCheckpoint.position);
+            gameState.player.mesh.rotation.set(0, 0, 0);
+            
+            // Reset enemies
+            gameState.enemies.forEach(enemy => {
+                if (enemy.isDead) {
+                    gameState.scene.remove(enemy.mesh);
+                }
+            });
+            gameState.enemies = [];
+            createEnemies();
+            
+            // Update UI
+            document.getElementById('death-screen').style.display = 'none';
+            updatePlayerUI();
+            hideEnemyHealthBar();
+        }
+        
+        // ============================================
+        // LOCK-ON SYSTEM
+        // ============================================
+        
+        function toggleLockOn() {
+            if (gameState.lockedTarget) {
+                gameState.lockedTarget = null;
+                document.getElementById('lock-reticle').style.display = 'none';
+                hideEnemyHealthBar();
+            } else {
+                const nearestEnemy = findNearestEnemy();
+                if (nearestEnemy) {
+                    gameState.lockedTarget = nearestEnemy;
+                    document.getElementById('lock-reticle').style.display = 'block';
+                    updateEnemyHealthBar(nearestEnemy);
+                }
+            }
+        }
+        
+        function findNearestEnemy() {
+            let nearest = null;
+            let minDist = Infinity;
+            
+            const playerPos = gameState.player.mesh.position;
+            
+            gameState.enemies.forEach(enemy => {
+                if (enemy.isDead) return;
+                const dist = playerPos.distanceTo(enemy.mesh.position);
+                if (dist < minDist && dist < 20) {
+                    minDist = dist;
+                    nearest = enemy;
+                }
+            });
+            
+            return nearest;
+        }
+        
+        function updateLockOnReticle() {
+            if (!gameState.lockedTarget || gameState.lockedTarget.isDead) {
+                gameState.lockedTarget = null;
+                document.getElementById('lock-reticle').style.display = 'none';
+                hideEnemyHealthBar();
+                return;
+            }
+            
+            const enemy = gameState.lockedTarget;
+            const screenPos = enemy.mesh.position.clone();
+            screenPos.y += 2;
+            screenPos.project(gameState.camera);
+            
+            const x = (screenPos.x * 0.5 + 0.5) * window.innerWidth;
+            const y = (-(screenPos.y * 0.5) + 0.5) * window.innerHeight;
+            
+            const reticle = document.getElementById('lock-reticle');
+            reticle.style.left = (x - 25) + 'px';
+            reticle.style.top = (y - 25) + 'px';
+        }
+        
+        // ============================================
+        // CHECKPOINT SYSTEM
+        // ============================================
+        
+        function checkCheckpointActivation() {
+            const playerPos = gameState.player.mesh.position;
+            
+            gameState.checkpoints.forEach(checkpoint => {
+                const dist = playerPos.distanceTo(checkpoint.position);
+                if (dist < 3) {
+                    activateCheckpoint(checkpoint);
+                }
+            });
+        }
+        
+        function activateCheckpoint(checkpoint) {
+            gameState.activeCheckpoint = checkpoint;
+            checkpoint.isActive = true;
+            
+            // Restore player
+            gameState.player.health = CONFIG.player.maxHealth;
+            gameState.player.stamina = CONFIG.player.maxStamina;
+            updatePlayerUI();
+            
+            // Visual feedback
+            checkpoint.flame.material.emissiveIntensity = 1;
+            
+            // Show message
+            const message = document.getElementById('checkpoint-message');
+            message.style.display = 'block';
+            setTimeout(() => {
+                message.style.display = 'none';
+            }, 2000);
+            
+            playSound(800, 0.3, 'sine');
+        }
+        
+        // ============================================
+        // ENEMY AI
+        // ============================================
+        
+        function updateEnemyAI(enemy, deltaTime) {
+            if (enemy.isDead) return;
+            
+            const playerPos = gameState.player.mesh.position;
+            const enemyPos = enemy.mesh.position;
+            const distToPlayer = playerPos.distanceTo(enemyPos);
+            
+            // State machine
+            if (distToPlayer < enemy.detectionRange && !gameState.player.isDead) {
+                if (distToPlayer < enemy.attackRange) {
+                    enemy.state = 'attack';
+                } else {
+                    enemy.state = 'chase';
+                }
+            } else {
+                enemy.state = 'patrol';
+            }
+            
+            // Execute state behavior
+            switch (enemy.state) {
+                case 'patrol':
+                    updatePatrol(enemy, deltaTime);
+                    break;
+                case 'chase':
+                    updateChase(enemy, deltaTime);
+                    break;
+                case 'attack':
+                    updateAttack(enemy, deltaTime);
+                    break;
+            }
+            
+            // Update attack animation
+            if (enemy.isAttacking) {
+                enemy.attackTime += deltaTime;
+                if (enemy.attackTime > 0.8) {
+                    enemy.isAttacking = false;
+                    enemy.attackTime = 0;
+                }
+            }
+        }
+        
+        function updatePatrol(enemy, deltaTime) {
+            const enemyPos = enemy.mesh.position;
+            const target = enemy.patrolTarget;
+            const dist = enemyPos.distanceTo(target);
+            
+            if (dist < 2) {
+                // Choose new patrol target
+                enemy.patrolTarget = new THREE.Vector3(
+                    enemyPos.x + Math.random() * 10 - 5,
+                    0,
+                    enemyPos.z + Math.random() * 10 - 5
+                );
+            } else {
+                // Move toward patrol target
+                const direction = new THREE.Vector3()
+                    .subVectors(target, enemyPos)
+                    .normalize();
+                
+                enemyPos.x += direction.x * enemy.moveSpeed * deltaTime;
+                enemyPos.z += direction.z * enemy.moveSpeed * deltaTime;
+                
+                // Face movement direction
+                enemy.mesh.lookAt(target);
+            }
+        }
+        
+        function updateChase(enemy, deltaTime) {
+            const playerPos = gameState.player.mesh.position;
+            const enemyPos = enemy.mesh.position;
+            
+            const direction = new THREE.Vector3()
+                .subVectors(playerPos, enemyPos)
+                .normalize();
+            
+            enemyPos.x += direction.x * enemy.moveSpeed * deltaTime;
+            enemyPos.z += direction.z * enemy.moveSpeed * deltaTime;
+            
+            // Face player
+            enemy.mesh.lookAt(playerPos);
+        }
+        
+        function updateAttack(enemy, deltaTime) {
+            const playerPos = gameState.player.mesh.position;
+            
+            // Face player
+            enemy.mesh.lookAt(playerPos);
+            
+            // Attack cooldown check
+            const currentTime = Date.now() / 1000;
+            if (currentTime - enemy.lastAttackTime > enemy.attackCooldown && !enemy.isAttacking) {
+                enemy.isAttacking = true;
+                enemy.attackTime = 0;
+                enemy.lastAttackTime = currentTime;
+                
+                // Telegraph attack with sound
+                playSound(350, 0.1, 'triangle');
+                
+                // Damage player after delay (telegraphed)
+                setTimeout(() => {
+                    const dist = gameState.player.mesh.position.distanceTo(enemy.mesh.position);
+                    if (dist < enemy.attackRange) {
+                        damagePlayer(enemy.attackDamage);
+                    }
+                }, 600);
+                
+                // Animate attack
+                animateEnemyAttack(enemy);
+            }
+        }
+        
+        // ============================================
+        // ANIMATIONS
+        // ============================================
+        
+        function animateAttack(isHeavy) {
+            const duration = isHeavy ? 0.8 : 0.4;
+            const startTime = Date.now();
+            
+            const animate = () => {
+                const elapsed = (Date.now() - startTime) / 1000;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                if (progress < 0.5) {
+                    // Wind up
+                    gameState.player.rightArm.rotation.x = -Math.PI / 2 * (progress * 2);
+                    gameState.player.weapon.rotation.x = -Math.PI / 2 * (progress * 2);
+                } else {
+                    // Swing
+                    gameState.player.rightArm.rotation.x = -Math.PI / 2 + Math.PI * ((progress - 0.5) * 2);
+                    gameState.player.weapon.rotation.x = -Math.PI / 2 + Math.PI * ((progress - 0.5) * 2);
+                }
+                
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    gameState.player.rightArm.rotation.x = 0;
+                    gameState.player.weapon.rotation.x = 0;
+                    gameState.player.isAttacking = false;
+                }
+            };
+            
+            animate();
+        }
+        
+        function animateEnemyAttack(enemy) {
+            const startTime = Date.now();
+            const duration = 0.8;
+            
+            const animate = () => {
+                const elapsed = (Date.now() - startTime) / 1000;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                if (progress < 0.5) {
+                    enemy.rightArm.rotation.x = -Math.PI / 2 * (progress * 2);
+                    enemy.weapon.rotation.x = -Math.PI / 2 * (progress * 2);
+                } else {
+                    enemy.rightArm.rotation.x = -Math.PI / 2 + Math.PI * ((progress - 0.5) * 2);
+                    enemy.weapon.rotation.x = -Math.PI / 2 + Math.PI * ((progress - 0.5) * 2);
+                }
+                
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    enemy.rightArm.rotation.x = 0;
+                    enemy.weapon.rotation.x = 0;
+                }
+            };
+            
+            animate();
+        }
+        
+        function updatePlayerAnimation(deltaTime) {
+            const isMoving = gameState.keys['w'] || gameState.keys['a'] || 
+                           gameState.keys['s'] || gameState.keys['d'];
+            
+            if (gameState.player.isRolling) {
+                // Roll animation - rotate body
+                gameState.player.body.rotation.x = Math.sin(gameState.player.rollTime * 10) * 0.5;
+            } else if (isMoving && !gameState.player.isAttacking) {
+                // Walking animation - bob up and down
+                const time = Date.now() / 1000;
+                gameState.player.mesh.position.y = Math.abs(Math.sin(time * 8)) * 0.1;
+                
+                // Swing arms
+                gameState.player.leftArm.rotation.x = Math.sin(time * 8) * 0.5;
+                gameState.player.rightArm.rotation.x = -Math.sin(time * 8) * 0.5;
+            } else if (!gameState.player.isAttacking) {
+                // Idle - subtle breathing
+                const time = Date.now() / 1000;
+                gameState.player.mesh.position.y = Math.sin(time * 2) * 0.05;
+                gameState.player.body.rotation.x = 0;
+                gameState.player.leftArm.rotation.x = 0;
+                if (!gameState.player.isAttacking) {
+                    gameState.player.rightArm.rotation.x = 0;
+                }
+            }
+        }
+        
+        // ============================================
+        // PLAYER MOVEMENT & CAMERA
+        // ============================================
+        
+        function updatePlayerMovement(deltaTime) {
+            if (gameState.player.isDead) return;
+            
+            const moveSpeed = gameState.player.isRolling ? 
+                CONFIG.player.rollSpeed : CONFIG.player.moveSpeed;
+            
+            const forward = new THREE.Vector3(0, 0, -1);
+            const right = new THREE.Vector3(1, 0, 0);
+            
+            forward.applyQuaternion(gameState.camera.quaternion);
+            forward.y = 0;
+            forward.normalize();
+            
+            right.applyQuaternion(gameState.camera.quaternion);
+            right.y = 0;
+            right.normalize();
+            
+            const movement = new THREE.Vector3();
+            
+            if (!gameState.player.isAttacking) {
+                if (gameState.keys['w']) movement.add(forward);
+                if (gameState.keys['s']) movement.sub(forward);
+                if (gameState.keys['a']) movement.sub(right);
+                if (gameState.keys['d']) movement.add(right);
+                
+                if (movement.length() > 0) {
+                    movement.normalize();
+                    
+                    if (!gameState.player.isRolling) {
+                        // Face movement direction
+                        const angle = Math.atan2(movement.x, movement.z);
+                        gameState.player.mesh.rotation.y = angle;
+                    }
+                }
+            }
+            
+            // Apply movement
+            if (gameState.player.isRolling) {
+                gameState.player.rollTime += deltaTime;
+                const rollDir = new THREE.Vector3(0, 0, -1);
+                rollDir.applyQuaternion(gameState.player.mesh.quaternion);
+                gameState.player.mesh.position.addScaledVector(rollDir, moveSpeed * deltaTime);
+                
+                if (gameState.player.rollTime > CONFIG.player.rollDuration) {
+                    gameState.player.isRolling = false;
+                    gameState.player.rollTime = 0;
+                }
+            } else {
+                gameState.player.mesh.position.addScaledVector(movement, moveSpeed * deltaTime);
+            }
+            
+            // Boundary checking
+            const pos = gameState.player.mesh.position;
+            pos.x = Math.max(-24, Math.min(24, pos.x));
+            pos.z = Math.max(-24, Math.min(24, pos.z));
+            pos.y = Math.max(0, pos.y);
+        }
+        
+        function updateCamera() {
+            if (gameState.player.isDead) return;
+            
+            const playerPos = gameState.player.mesh.position;
+            
+            if (gameState.lockedTarget && !gameState.lockedTarget.isDead) {
+                // Lock-on camera - look at enemy
+                const enemyPos = gameState.lockedTarget.mesh.position;
+                const midPoint = new THREE.Vector3()
+                    .addVectors(playerPos, enemyPos)
+                    .multiplyScalar(0.5);
+                
+                const offset = new THREE.Vector3(
+                    Math.sin(gameState.mouse.x) * 8,
+                    5,
+                    Math.cos(gameState.mouse.x) * 8
+                );
+                
+                gameState.camera.position.copy(midPoint).add(offset);
+                gameState.camera.lookAt(midPoint);
+            } else {
+                // Free camera
+                const cameraOffset = new THREE.Vector3(
+                    Math.sin(gameState.mouse.x) * 8,
+                    5 + Math.sin(gameState.mouse.y) * 3,
+                    Math.cos(gameState.mouse.x) * 8
+                );
+                
+                gameState.camera.position.copy(playerPos).add(cameraOffset);
+                gameState.camera.lookAt(playerPos);
+            }
+        }
+        
+        // ============================================
+        // UI UPDATES
+        // ============================================
+        
+        function updatePlayerUI() {
+            const healthPercent = (gameState.player.health / CONFIG.player.maxHealth) * 100;
+            const staminaPercent = (gameState.player.stamina / CONFIG.player.maxStamina) * 100;
+            
+            document.getElementById('health-bar').style.width = healthPercent + '%';
+            document.getElementById('stamina-bar').style.width = staminaPercent + '%';
+        }
+        
+        function updateEnemyHealthBar(enemy) {
+            const healthPercent = (enemy.health / enemy.maxHealth) * 100;
+            document.getElementById('enemy-health-bar').style.width = healthPercent + '%';
+            document.getElementById('enemy-name').textContent = enemy.isBoss ? 'Boss Knight' : 'Enemy Knight';
+            document.getElementById('enemy-health-container').style.display = 'block';
+        }
+        
+        function hideEnemyHealthBar() {
+            document.getElementById('enemy-health-container').style.display = 'none';
+        }
+        
+        // ============================================
+        // AUDIO SYSTEM
+        // ============================================
+        
+        function playSound(frequency, duration, type = 'sine') {
+            if (!gameState.audioContext) return;
+            
+            const oscillator = gameState.audioContext.createOscillator();
+            const gainNode = gameState.audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(gameState.audioContext.destination);
+            
+            oscillator.frequency.value = frequency;
+            oscillator.type = type;
+            
+            gainNode.gain.setValueAtTime(0.1, gameState.audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(
+                0.01,
+                gameState.audioContext.currentTime + duration
+            );
+            
+            oscillator.start(gameState.audioContext.currentTime);
+            oscillator.stop(gameState.audioContext.currentTime + duration);
+        }
+        
+        // ============================================
+        // GAME LOOP
+        // ============================================
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const deltaTime = gameState.clock.getDelta();
+            
+            if (!gameState.player.isDead) {
+                // Update player
+                updatePlayerMovement(deltaTime);
+                updatePlayerAnimation(deltaTime);
+                
+                // Stamina regeneration
+                if (!gameState.player.isAttacking && !gameState.player.isRolling) {
+                    gameState.player.stamina = Math.min(
+                        CONFIG.player.maxStamina,
+                        gameState.player.stamina + CONFIG.player.staminaRegen * deltaTime
+                    );
+                }
+                
+                // Update enemies
+                gameState.enemies.forEach(enemy => updateEnemyAI(enemy, deltaTime));
+                
+                // Update camera
+                updateCamera();
+                
+                // Update lock-on reticle
+                updateLockOnReticle();
+                
+                // Update UI
+                updatePlayerUI();
+                
+                // Track mouse hold time for heavy attack
+                if (gameState.mouseDown) {
+                    gameState.mouseDownTime += deltaTime;
+                }
+            }
+            
+            // Animate checkpoint flames
+            gameState.checkpoints.forEach(checkpoint => {
+                checkpoint.flame.rotation.y += deltaTime * 2;
+                checkpoint.flame.position.y = 1 + Math.sin(Date.now() / 500) * 0.2;
+            });
+            
+            // Render
+            gameState.renderer.render(gameState.scene, gameState.camera);
+        }
+        
+        // ============================================
+        // START GAME
+        // ============================================
+        
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
