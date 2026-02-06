@@ -32,6 +32,7 @@ GAME.Game = class Game {
         this.enemyManager = null;
         this.cameraController = null;
         this.combatSystem = null;
+        this.trailManager = null;
         this.levelData = null;
 
         // Bonfire fire animation references
@@ -139,6 +140,8 @@ GAME.Game = class Game {
         this.enemyManager.spawnAll();
         this.cameraController = new GAME.CameraController(this.camera);
         this.combatSystem = new GAME.CombatSystem(this.audio, this.ui);
+        this.trailManager = new GAME.TrailManager(this.scene);
+        this.trailManager.init(this.player, this.enemyManager);
     }
 
     /** Set up window events */
@@ -246,6 +249,8 @@ GAME.Game = class Game {
 
         this.combatSystem.update(this.player, this.enemyManager);
 
+        this.trailManager.update(this.player, this.enemyManager, dt);
+
         this.cameraController.update(dt, playerPos, this.input);
 
         this.ui.update(this.player, this.enemyManager, this.camera);
@@ -289,6 +294,8 @@ GAME.Game = class Game {
                     this.player.setCheckpoint(bonfire.position);
                     this.player.rest();
                     this.enemyManager.resetAll();
+                    this.trailManager.dispose();
+                    this.trailManager.init(this.player, this.enemyManager);
                     this.audio.play('bonfire');
                 }
                 break;
@@ -304,6 +311,8 @@ GAME.Game = class Game {
     _respawnPlayer() {
         this.player.respawn();
         this.enemyManager.resetAll();
+        this.trailManager.dispose();
+        this.trailManager.init(this.player, this.enemyManager);
         this.ui.hideDeathScreen();
         this.state = 'playing';
     }

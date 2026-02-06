@@ -499,26 +499,26 @@ GAME.Enemy = class Enemy {
     _pickBossAttack() {
         this.bossAttackPattern = (this.bossAttackPattern + 1) % 3;
 
-        // Phase 2 at half health — faster, more aggressive
+        // Phase 2 at half health — slower but harder-hitting attacks
         if (this.health < this.maxHealth * 0.5 && this.bossPhase === 1) {
             this.bossPhase = 2;
-            this.speed *= 1.3;
-            this.telegraphDuration = 0.5;
-            this.recoverDuration = 0.6;
+            this.speed *= 0.85;
+            this.telegraphDuration = 1.2;
+            this.recoverDuration = 1.4;
         }
 
         switch (this.bossAttackPattern) {
             case 0: // Overhead slam
-                this.attackDuration = 0.6;
-                this.damage = this.isBoss ? 30 : 20;
+                this.attackDuration = this.bossPhase === 2 ? 1.0 : 0.6;
+                this.damage = this.isBoss ? (this.bossPhase === 2 ? 40 : 30) : 20;
                 break;
             case 1: // Wide sweep
-                this.attackDuration = 0.8;
-                this.damage = this.isBoss ? 25 : 20;
+                this.attackDuration = this.bossPhase === 2 ? 1.2 : 0.8;
+                this.damage = this.isBoss ? (this.bossPhase === 2 ? 35 : 25) : 20;
                 break;
             case 2: // Lunge thrust
-                this.attackDuration = 0.4;
-                this.damage = this.isBoss ? 35 : 20;
+                this.attackDuration = this.bossPhase === 2 ? 0.8 : 0.4;
+                this.damage = this.isBoss ? (this.bossPhase === 2 ? 45 : 35) : 20;
                 break;
         }
     }
