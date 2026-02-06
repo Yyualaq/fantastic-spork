@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Souls of the Fallen — 3D Action RPG</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Game Canvas (Three.js renders here) -->
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+    </div>
+
+    <!-- HUD Overlay -->
+    <div id="hud">
+        <!-- Player health bar -->
+        <div id="player-bars">
+            <div class="bar-container" id="health-bar-container">
+                <div class="bar-fill" id="health-bar"></div>
+                <span class="bar-label">HP</span>
+            </div>
+            <div class="bar-container" id="stamina-bar-container">
+                <div class="bar-fill" id="stamina-bar"></div>
+                <span class="bar-label">ST</span>
+            </div>
+        </div>
+
+        <!-- Lock-on reticle -->
+        <div id="lock-on-reticle" class="hidden">
+            <div class="reticle-ring"></div>
+        </div>
+
+        <!-- Boss health bar (hidden until boss fight) -->
+        <div id="boss-bar-container" class="hidden">
+            <span class="boss-name" id="boss-name">Guardian of the Abyss</span>
+            <div class="bar-container boss-bar">
+                <div class="bar-fill" id="boss-health-bar"></div>
+            </div>
+        </div>
+
+        <!-- Enemy health bar (floating, positioned dynamically) -->
+        <div id="enemy-health-container" class="hidden">
+            <div class="bar-container enemy-bar">
+                <div class="bar-fill" id="enemy-health-bar"></div>
+            </div>
+        </div>
+
+        <!-- Interaction prompt -->
+        <div id="interaction-prompt" class="hidden">
+            <span>Press <kbd>E</kbd> to rest at bonfire</span>
+        </div>
+
+        <!-- Death screen -->
+        <div id="death-screen" class="hidden">
+            <h1>YOU DIED</h1>
+            <p>Press <kbd>R</kbd> to respawn</p>
+        </div>
+
+        <!-- Victory screen -->
+        <div id="victory-screen" class="hidden">
+            <h1>VICTORY ACHIEVED</h1>
+            <p>The darkness has been vanquished</p>
+        </div>
+
+        <!-- Start screen -->
+        <div id="start-screen">
+            <h1>Souls of the Fallen</h1>
+            <p class="subtitle">A Dark Fantasy Action RPG</p>
+            <p class="start-prompt">Click to Begin</p>
+            <div class="controls-info">
+                <h3>Controls</h3>
+                <ul>
+                    <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> — Move</li>
+                    <li><kbd>Mouse</kbd> — Camera</li>
+                    <li><kbd>Scroll</kbd> — Zoom</li>
+                    <li><kbd>Left Click</kbd> — Light Attack</li>
+                    <li><kbd>Hold Left Click</kbd> — Heavy Attack</li>
+                    <li><kbd>Space</kbd> — Dodge Roll</li>
+                    <li><kbd>Q</kbd> — Lock-on Target</li>
+                    <li><kbd>E</kbd> — Interact (Bonfire)</li>
+                    <li><kbd>Shift</kbd> — Sprint</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <!-- Game Scripts (loaded in dependency order) -->
+    <script src="js/audio.js"></script>
+    <script src="js/input.js"></script>
+    <script src="js/level.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/enemy.js"></script>
+    <script src="js/camera.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/combat.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
