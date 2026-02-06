@@ -308,7 +308,7 @@ GAME.Player = class Player {
 
         // Determine movement direction relative to camera
         const angle = Math.atan2(moveX, moveZ) + cameraYaw;
-        this.direction.set(-Math.sin(angle), 0, -Math.cos(angle)).normalize();
+        this.direction.set(Math.sin(angle), 0, Math.cos(angle)).normalize();
 
         // Sprint check
         const sprinting = input.isKeyDown('ShiftLeft') && this.stamina > 1;
