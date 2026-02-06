@@ -364,18 +364,14 @@ GAME.Player = class Player {
         }
 
         // Heavy attack (mouse held > 0.4s then released)
-        if (input.mouseJustReleased && input.getMouseHoldDuration() === 0) {
-            // Check if was holding long enough (captured before release)
-            const holdTime = (performance.now() - input.mouseDownTime) / 1000;
-            if (holdTime >= 0.4) {
-                if (this._useStamina(25)) {
-                    this.state = 'heavyAttack';
-                    this.stateTimer = 0.7;
-                    this.attackDamage = 35;
-                    this.attackHasHit = false;
-                    audio.play('heavyAttack');
-                    return;
-                }
+        if (input.mouseJustReleased && input.lastHoldDuration >= 0.4) {
+            if (this._useStamina(25)) {
+                this.state = 'heavyAttack';
+                this.stateTimer = 0.7;
+                this.attackDamage = 35;
+                this.attackHasHit = false;
+                audio.play('heavyAttack');
+                return;
             }
         }
 

@@ -27,6 +27,11 @@ GAME.Enemy = class Enemy {
         this.type = config.type || 'knight';
         this.isBoss = config.isBoss || false;
 
+        // Store original values for reset
+        this.baseSpeed = this.speed;
+        this.baseTelegraphDuration = config.telegraphDuration || 0.8;
+        this.baseRecoverDuration = config.recoverDuration || 1.0;
+
         // State machine: patrol, chase, attack, telegraph, recover, stagger, dead
         this.state = 'patrol';
         this.stateTimer = 0;
@@ -288,10 +293,14 @@ GAME.Enemy = class Enemy {
         this.state = 'patrol';
         this.mesh.position.copy(this.spawnPosition);
         this.mesh.position.y = 0;
+        this.mesh.rotation.set(0, 0, 0);
         this.mesh.visible = true;
         this.healthBarGroup.visible = true;
         this.bossPhase = 1;
         this.bossAttackPattern = 0;
+        this.speed = this.baseSpeed;
+        this.telegraphDuration = this.baseTelegraphDuration;
+        this.recoverDuration = this.baseRecoverDuration;
         this._pickNewPatrolTarget();
     }
 

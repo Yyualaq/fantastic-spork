@@ -14,7 +14,7 @@ body {
     background: #000;
     font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
     color: #ccc;
-    cursor: none;
+    cursor: default;
 }
 
 #game-container {

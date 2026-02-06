@@ -21,6 +21,7 @@ GAME.InputManager = class InputManager {
         this.mouseDownTime = 0;       // Timestamp when mouse was pressed
         this.mouseJustPressed = false; // True for one frame on click
         this.mouseJustReleased = false;
+        this.lastHoldDuration = 0;    // Duration of last completed hold (seconds)
         this.mouseDeltaX = 0;
         this.mouseDeltaY = 0;
         this.scrollDelta = 0;
@@ -60,6 +61,7 @@ GAME.InputManager = class InputManager {
         window.addEventListener('mouseup', (e) => {
             if (e.button === 0) {
                 if (this.mouseDown) {
+                    this.lastHoldDuration = (performance.now() - this.mouseDownTime) / 1000;
                     this.mouseJustReleased = true;
                 }
                 this.mouseDown = false;
