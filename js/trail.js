@@ -22,6 +22,7 @@ GAME.WeaponTrail = class WeaponTrail {
         this.maxPoints = opts.maxPoints || 20;
         this.trailWidth = opts.width || 0.3;
         this.fadeDuration = opts.duration || 0.25; // seconds after attack ends to fade
+        this.baseOpacity = typeof opts.opacity === 'number' ? opts.opacity : 0.6;
 
         // Trail state
         this.points = [];      // Array of {tip: Vector3, base: Vector3}
@@ -33,7 +34,7 @@ GAME.WeaponTrail = class WeaponTrail {
         this.material = new THREE.MeshBasicMaterial({
             color: this.color,
             transparent: true,
-            opacity: 0.6,
+            opacity: this.baseOpacity,
             side: THREE.DoubleSide,
             depthWrite: false,
             blending: THREE.AdditiveBlending
@@ -51,6 +52,7 @@ GAME.WeaponTrail = class WeaponTrail {
         if (attacking) {
             this.active = true;
             this.fadeTimer = this.fadeDuration;
+            this.material.opacity = this.baseOpacity;
 
             // Record point pair
             this.points.push({
@@ -96,8 +98,8 @@ GAME.WeaponTrail = class WeaponTrail {
             const next = this.points[i + 1];
 
             // Fade: older segments are more transparent
-            const alphaStart = (i / this.points.length) * this.material.opacity;
-            const alphaEnd = ((i + 1) / this.points.length) * this.material.opacity;
+            const alphaStart = (i / this.points.length) * this.baseOpacity;
+            const alphaEnd = ((i + 1) / this.points.length) * this.baseOpacity;
 
             // Overall fade when trail is ending
             const fadeMult = this.active && this.fadeTimer < this.fadeDuration
@@ -126,9 +128,9 @@ GAME.WeaponTrail = class WeaponTrail {
         geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
 
         // Calculate opacity: fade out based on remaining fade time
-        let opacity = this.material.opacity;
+        let opacity = this.baseOpacity;
         if (this.fadeTimer < this.fadeDuration) {
-            opacity = (this.fadeTimer / this.fadeDuration) * this.material.opacity;
+            opacity = (this.fadeTimer / this.fadeDuration) * this.baseOpacity;
         }
         this.material.opacity = opacity;
 
